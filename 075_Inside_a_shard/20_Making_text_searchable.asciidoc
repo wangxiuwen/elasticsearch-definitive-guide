@@ -1,18 +1,16 @@
 [[making-text-searchable]]
-=== Making Text Searchable
+=== 使一个文本可被搜索
 
-The first challenge that had to be solved was how to((("text", "making it searchable"))) make text searchable.
-Traditional databases store a single value per field, but this is insufficient
-for full-text search.  Every word in a text field needs to be searchable,
-which means that the database needs to be able to index multiple values--words, in this case--in a single field.
+第一个需要被解决的挑战是怎么样((("text", "making it searchable")))让一个文本可以被搜索。
 
-The data structure that best supports the _multiple-values-per-field_
-requirement is the _inverted index_, which((("inverted index"))) we introduced in
-<<inverted-index>>. The inverted index contains a sorted list of all of the
-unique values, or _terms_, that occur in any document and, for each term, a list
-of all the documents that contain it.
+传统的数据库使用一个字段存储单个值，但是这对全文检索并不够。每个文本中的单词需要被搜索，这意味着数据库需要有能力
+在这一个单值字段中索引大量的值--单词。
 
-     Term  | Doc 1 | Doc 2 | Doc 3 | ...
+很好的支持 _一个字段多个值_ 需求的数据结构((("inverted index")))是我们在 <<inverted-index>> 章节中介绍过的 _倒排索引_ 。这个倒排索引包含一个排序后包含唯一值或词的列表，这些词出现在任何文档中，对于每个词，有一个包含它的文档
+列表。
+ 
+
+     词  | 文档 1 | 文档 2 | 文档 3 | ...
      ------------------------------------
      brown |   X   |       |  X    | ...
      fox   |   X   |   X   |  X    | ...
@@ -22,53 +20,36 @@ of all the documents that contain it.
 
 [NOTE]
 ====
-When discussing inverted indices, we talk about indexing _documents_ because,
-historically, an inverted index was used to index whole unstructured text
-documents.  A _document_ in Elasticsearch is a structured JSON document with
-fields and values.  In reality, every indexed field in a JSON document has its
-own inverted index.
+当我们讨论倒排索引时， 我们讨论索引 _文档_。因为历史原因，我们过去用倒排索引索引非结构化的
+文本文档。一个 _文档_ 在 Elasticsearch 中是一个 有键值对的 JSON 文档。事实上，在JSON文档中，
+每个索引字段都有它自己的倒排索引。
 ====
 
-The inverted index may hold a lot more information than the list
-of documents that contain a particular term. It may store a count of the number of
-documents that contain each term, the number of times a term appears in a particular
-document, the order of terms in each document, the length of each document,
-the average length of all documents, and more.  These statistics allow
-Elasticsearch to determine which terms are more important than others, and
-which documents are more important than others, as described in
-<<relevance-intro>>.
+这个倒排索引会包含比包含特定词汇的文档列表更多的信息。它会存储一个文档包含每个词的数量，
+每个词出现在特定文档中的次数，每个文档中词的排序，每个文档的长度，等等。这些统计结果允许
+Elasticsearch 决定哪些词比其它词更重要，哪些文档比其它文档更重要，在<<relevance-intro>>
+中有描述。
 
-The important thing to realize is that the inverted index needs to know about
-_all_ documents in the collection in order for it to function as intended.
-
-In the early days of full-text search, one big inverted index was built for
-the entire document collection and written to disk.  As soon as the new index
-was ready, it replaced the old index, and recent changes became searchable.
+需要意识到到是 倒排索引为了目的功能的执行需要知道集合中的 _all_ 文档。
+很久以前的全文检索，一个大的索引为整个文档集合被构建出来，并写到了硬盘上。一旦新的索引准备好，
+他就会替换旧的索引，而且最近的改变就可以搜索了。
 
 [role="pagebreak-before"]
-==== Immutability
+==== 不变的
 
-The inverted index that is written to disk is _immutable_: it doesn't
-change.((("inverted index", "immutability"))) Ever.  This immutability has important benefits:
+写到磁盘的倒排索引是 _不可改变_ 的: 它永远不会变化。((("inverted index", "immutability")))
+这些不变性有重要的好处：
 
-* There is no need for locking. If you never have to update the index, you
-  never have to worry about multiple processes trying to make changes at
-  the same time.
+* 不需要锁。如果你永远不更新index，你不需要担心多进程同时改变数据。
+* 一旦索引被读入了内核的文件系统缓存，它留在哪里，因为它不会改变。如果文件系统缓存中没有足够的
+  空间，更多的读取会发生在内存中，而不是发生在硬盘读取。这提供了很大的性能提升。
+* 其它缓存(像filter缓存)， 停留在索引的生存周期。他们不需要每次数据改变时重新构建，因为数据不会
+  变化。
 
-* Once the index has been read into the kernel's filesystem cache, it stays
-  there, because it never changes.  As long as there is enough space in the
-  filesystem cache, most reads will come from memory instead of having to
-  hit disk.  This provides a big performance boost.
+* 写入单个大的倒排索引允许数据被压缩，减少磁盘 I/O 和 需要被缓存到内存的索引的使用量。
 
-* Any other caches (like the filter cache) remain valid for the life of the
-  index. They don't need to be rebuilt every time the data changes,
-  because the data doesn't change.
+当然，一个不变的索引也有不好的地方。主要事实是它是不可变的! 你不能修改它。如果你需要让一个新的文档
+可搜索，你需要重新构建整个索引。这放置了一个对一个索引所能包含的数据量和一个索引可以被更新的频率的显著的限制。
 
-* Writing a single large inverted index allows the data to be compressed,
-  reducing costly disk I/O and the amount of RAM needed to cache the index.
-
-Of course, an immutable index has its downsides too, primarily the fact that
-it is immutable! You can't change it.  If you want to make new documents
-searchable, you have to rebuild the entire index. This places a significant limitation either on the amount of data that an index can contain, or the frequency with which the index can be updated.
 
 
