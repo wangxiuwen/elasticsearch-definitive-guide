@@ -1,72 +1,60 @@
 [[near-real-time]]
-=== Near Real-Time Search
+=== 近实时搜索
 
-With the development of per-segment search, the ((("searching", "near real-time search")))delay between indexing a
-document and making it visible to search dropped dramatically.  New documents
-could be made searchable within minutes, but that still isn't fast enough.
+在开发段搜索的过程中，((("searching", "near real-time search"))) 索引一个文档并且使它可见来被搜索，延期显著下降了。
+新的文档可以在几分钟后被搜索，但是它还是不够快。
 
-The bottleneck is the disk. ((("committing segments to disk")))((("fsync")))((("segments", "committing to disk"))) Commiting a new segment to disk requires an
-http://en.wikipedia.org/wiki/Fsync[`fsync`] to ensure that the segment is
-physically written to disk and that data will not be lost if there is a power
-failure. But an `fsync` is costly; it cannot be performed every time a
-document is indexed without a big performance hit.
+磁盘是瓶颈。((("committing segments to disk")))((("fsync")))((("segments", "committing to disk"))) 提交一个新的段到磁盘需要一个
+http://en.wikipedia.org/wiki/Fsync[`fsync`] 来保证段物理写入磁盘，并且在断电不会丢失数据。但是 `fsync` 消耗很大; 它不能在一个文档每次
+被索引时没有大的性能损失。
 
-What was needed was a more lightweight way to make new documents visible to
-search, which meant removing `fsync` from the equation.
+我们需要的是一个更轻量的方式来使一个文档被搜索，这意味着 `fsync` 要从等式中被移除。
 
-Sitting between Elasticsearch and the disk is the filesystem cache.((("filesystem cache")))  As before, documents in the in-memory indexing buffer (<<img-pre-refresh>>) are written to a new segment (<<img-post-refresh>>). But the new
-segment is written to the filesystem cache first--which is cheap--and
-only later is it flushed to disk--which is expensive.  But once a file is in
-the cache, it can be opened and read, just like any other file.
+Elasticsearch 和磁盘是文件系统缓存。((("filesystem cache")))  过去文档在内存索引缓存中 (<<img-pre-refresh>>) ，被写到
+一个新的段中(<<img-post-refresh>>)。但是新的段首先被写到文件系统--这是廉价的--只是后来被刷到磁盘--这是昂贵的。但是一旦一个文件在缓存中，
+它就可以被打开和读取，就像其它文件一样。
+
+
 
 [[img-pre-refresh]]
-.A Lucene index with new documents in the in-memory buffer
+.一个 包含新文档的 Lucene 索引在内存缓存中
 image::images/elas_1104.png["A Lucene index with new documents in the in-memory buffer"]
 
-Lucene allows new segments to be written and opened--making the documents
-they contain visible to search--without performing a full commit. This is a
-much lighter process than a commit, and can be done frequently without ruining
-performance.
+Lucene 允许新的段被写入和打开--使文档包含并被搜索--在并没有完全被提交之前。这是比提交轻量很多的进程，而且可以在不影响性能
+的情况下经常完成执行。
 
 [[img-post-refresh]]
-.The buffer contents have been written to a segment, which is searchable, but is not yet commited
+.这个缓存内容已经被写入一个可被搜索的段，但是它还没有被提交。
 image::images/elas_1105.png["The buffer contents have been written to a segment, which is searchable, but is not yet commited"]
 
 
 [[refresh-api]]
 ==== refresh API
 
-In Elasticsearch, this lightweight process of writing and opening a new
-segment is called a _refresh_.((("shards", "refreshes")))((("refresh API"))) By default, every shard is refreshed
-automatically once every second. This is why we say that Elasticsearch has
-_near_ real-time search: document changes are not visible to search
-immediately, but will become visible within 1 second.
+在 Elasticsearch 中， 写和打开一个新的段的轻量的进程被称作一个 _refresh_。((("shards", "refreshes")))((("refresh API")))
+默认每个分片每秒被刷新一次。这就是为什么我们说 Elasticsearch 有 _近_ 实时搜索: 文档并不是立刻，但是会在一秒内可见可被搜索。
 
 This can be confusing for new users: they index a document and try to search
 for it, and it just isn't there.  The way around this is to perform a manual
 refresh, with the `refresh` API:
+用户会感到迷惑: 他们索引了一个文档并且试着去搜索，但是却没有搜到。解决问题的办法就是用 `refresh` API 执行一个手工的刷新:
 
 [source,json]
 -----------------------------
 POST /_refresh <1>
 POST /blogs/_refresh <2>
 -----------------------------
-<1> Refresh all indices.
-<2> Refresh just the `blogs` index.
+<1> 刷新所有的索引。
+<2> 只刷新 `blogs` 索引。
 
 [TIP]
 ====
-While a refresh is much lighter than a commit, it still has a performance
-cost.((("indices", "refresh_interval")))  A manual refresh can be useful when writing tests, but don't do a
-manual refresh every time you index a document in production; it will hurt
-your performance.  Instead, your application needs to be aware of the near
-real-time nature of Elasticsearch and make allowances for it.
+尽管刷新是比提交轻量很多的操作，它还是会有性能开销。((("indices", "refresh_interval"))) 当写测试的时候，一个手工刷新是很有用的，
+但是不要在生产环境下每次索引一个文档都去手工刷新。你的应用应该需要意识到 Elasticsearch 的近实时的性质， 并且容忍它。
 ====
 
-Not all use cases require a refresh every second.  Perhaps you are using
-Elasticsearch to index millions of log files, and you would prefer to optimize
-for index speed rather than near real-time search.  You can reduce the
-frequency of refreshes on a per-index basis by ((("refresh_interval setting")))setting the `refresh_interval`:
+并不是所有的情况都需要每秒刷新。可能你正在使用 Elasticsearch 索引大量的日志文件， 你可能想优化索引速度而不是近实时搜索，
+可以以通过设置 ((("refresh_interval setting")))  `refresh_interval`， 降低每个索引的刷新频率：
 
 [source,json]
 -----------------------------
@@ -77,10 +65,9 @@ PUT /my_logs
   }
 }
 -----------------------------
-<1> Refresh the `my_logs` index every 30 seconds.
+<1> 每30秒刷新 `my_logs 索引。
 
-The `refresh_interval` can be updated dynamically on an existing index.  You
-can turn off automatic refreshes while you are building a big new index, and then turn them back on when you start using the index in production:
+这个 `refresh_interval` 可以在每个存在的索引上被自动更新。当你正在建立一个超大的新的索引时，你可以关闭自动刷新，当在生产环境使用时，再把它们调回来:
 
 [source,json]
 -----------------------------
@@ -90,11 +77,8 @@ PUT /my_logs/_settings
 PUT /my_logs/_settings
 { "refresh_interval": "1s" } <2>
 -----------------------------
-<1> Disable automatic refreshes.
-<2> Refresh automatically every second.
+<1> 关闭自动刷新
+<2> 每秒自动刷新
 
-CAUTION: The `refresh_interval` expects a _duration_ such as `1s` (1
-second) or `2m` (2 minutes).  An absolute number like `1` means
-_1 millisecond_--a sure way to bring your cluster to its knees.
-
-
+注意: `refresh_interval` 需要一个_时间_， 例如 `1s` (1 秒) or `2m` (2 分钟)。
+一个绝对值1 意味着 1 _毫秒_--会引起你的集群瘫痪。
