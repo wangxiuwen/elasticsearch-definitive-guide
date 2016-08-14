@@ -1,15 +1,14 @@
 [[merge-process]]
 === 段合并
 
-自动刷新进程每秒创建一个新的段并不需要太长时间 ((("segments", "merging"))) ，段数量并不会暴增。保留多少段是一个难题。
-每个段消耗文件句柄，内存， 和cpu 运行周期。 更重要的是，每次请求都需要检查每个段是否返回; 越多的段会使搜索越慢。
+由于自动刷新流程每秒会创建一个新的段 ((("segments", "merging"))) ，这样会导致短时间内的段数量暴增。而段数目太多会带来较大的麻烦。
+每一个段都会消耗文件句柄，内存， 和cpu 运行周期。更重要的是，每一次请求都需要检查每一个段的返回结果; 段越多，搜索也就越慢。
 
-Elasticsearch 通过在后台进程合并段来解决这个问题。((("merging segments"))) 小的段被合并到大的段，反过来，它被合并到更大的段。
+Elasticsearch 通过在后台进程合并段来解决这个问题。((("merging segments"))) 小的段被合并到大的段，然后这些大的段再按顺序被合并到更大的段。
 
-这时，当这些老的被删除的文档 ((("deleted documents", "purging of"))) 从文件系统中清除，删除文档 (或者老版本文档被更新) 并不会被合并到
-更大的段中。
+这也是被删除的旧文档从文件系统中被清除的时刻。((("deleted documents", "purging of"))) 被删除的文档(或被更新文档的旧版本)不会被拷贝到新的大段中。
 
-启动合并并不需要你做任何事。当你索引和搜索的时候，它是自动的。这个进程像在 <<img-merge>> 中提到的一样工作:
+启动段合并不需要你做任何事。进行索引和搜索时会自动进行。这个流程像在 <<img-merge>> 中提到的一样工作:
 
 1. 当索引的时候，刷新进程创建了一个新的段，而且为搜索打开它们。
 
@@ -33,28 +32,28 @@ image::images/elas_1110.png["Two commited segments and one uncommited segment in
 image::images/elas_1111.png["Once merging has finished, the old segments are deleted"]
 --
 
-合并大的段需要大量的I/O 和 CPU, 如果任其发展会影响搜索性能。Elasticsearch 默认控制合并进程，所以搜索仍然
-有足够的资源很好的执行。
+合并大的段需要大量的I/O 和 CPU, 如果任其发展会影响搜索性能。Elasticsearch在默认情况下会对合并流程进行资源限制，所以搜索仍然
+有足够的资源很好地执行。
 
 TIP: 查看 <<segments-and-merging>> 来获取关于合并调整用例的建议。
 
 [[optimize-api]]
 ==== optimize API
 
-`optimize` API 是最好的  ((("merging segments", "optimize API and")))((("optimize API")))((("segments", "merging", "optimize API"))) 描述 _强制合并_ 的 API。它会通过 `max_num_segments` 参数强制分片被合并至在指定的段数。它的意图是减少段的数量(通常是一个)，来提升
-搜索性能。
+`optimize` API  _强制合并_ API的最好描述  ((("merging segments", "optimize API and")))((("optimize API")))((("segments", "merging", "optimize API")))。它会将一个分片强制合并到 `max_num_segments` 参数指定大小的段数目。
+它的意图是减少段的数量(通常是一个)，来提升搜索性能。
 
-WARNING: `optimize` API _不能_ 被用在一个动态索引--一个索引正在被活跃更新。后台合并进程可以完成的很好，
+WARNING: `optimize` API _不能_ 被用在一个动态索引--一个索引正在被活跃更新。后台合并流程已经可以很好地完成工作。
 optimizing 会阻碍这个进程。勿扰！
 
-在这种情况下，`optimize` API 可以是有利的。常见的日志用例，日志每天，每周，每个月被存储在一个索引中，
-老的索引实质上是只读的; 它们看上去不会变化。
+在这种情况下，使用 `optimize` API 颇有益处。例如在日志这种用例下，每天、每周、每月的日志被存储在一个索引中。
+老的索引实质上是只读的; 它们也并不太可能会变化。
 
 
 In this case, it can be useful to optimize the shards of an old index down to
 a single segment each; it will use fewer resources and searches will be
 quicker:
-这这个情况下，optimize 可以非常有用，优化分片从一个老的索引到一个单独的段; 他会使用更少的资源搜索可以更快:
+在这种情况下，使用 optimize 优化老的索引，将每一个分片合并为一个单独的段就很有用了；这样既可以节省资源，也可以使搜索更加快速。
 
 [source,json]
 ---------------------------
@@ -64,6 +63,6 @@ POST /logstash-2014-10/_optimize?max_num_segments=1 <1>
 
 [WARNING]
 ====
-意识到合并通过`optimize` API 触发 并不够。它会消耗所有节点的 I/O, 使搜索没有资源而且可能使集群失去响应。
-如果你计划优化一个索引，你需要使用分片分配(查看 <<migrate-indices>>) 首先移动索引到一个安全的节点来执行。
+请注意，使用 `optimize` API 触发段合并的话没有任何资源上的限制。可能会消耗掉你节点上全部的I/O资源, 使其没有余裕来处理搜索请求。从而使集群失去响应。
+如果你想要对索引执行 `optimize`，你需要使用分片分配(查看 <<migrate-indices>>) 移动索引到一个安全的节点，再执行。
 ====
