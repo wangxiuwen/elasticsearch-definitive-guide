@@ -1,43 +1,40 @@
 [[near-real-time]]
-=== 近实时搜索
+=== 准实时搜索
 
-在开发段搜索的过程中，((("searching", "near real-time search"))) 索引一个文档并且使它可见来被搜索，延期显著下降了。
-新的文档可以在几分钟后被搜索，但是它还是不够快。
+随着对段内搜索的不断开发，((("searching", "near real-time search"))) 从新文档被索引到其对搜索可见的延迟显著地降低了。
+新文档在几分钟之内即可被检索，但这样还是不够快。
 
-磁盘是瓶颈。((("committing segments to disk")))((("fsync")))((("segments", "committing to disk"))) 提交一个新的段到磁盘需要一个
-http://en.wikipedia.org/wiki/Fsync[`fsync`] 来保证段物理写入磁盘，并且在断电不会丢失数据。但是 `fsync` 消耗很大; 它不能在一个文档每次
-被索引时没有大的性能损失。
+磁盘在这里成为了瓶颈。((("committing segments to disk")))((("fsync")))((("segments", "committing to disk"))) 提交一个新的段到磁盘需要一个
+http://en.wikipedia.org/wiki/Fsync[`fsync`] 来确保段被物理性地写入磁盘，这样在断电的时候就不会丢失数据。但是 `fsync` 操作代价很大; 如果每次索引一个文档都去执行一次的话会造成很大的性能问题。
 
-我们需要的是一个更轻量的方式来使一个文档被搜索，这意味着 `fsync` 要从等式中被移除。
+我们需要的是一个更轻量的方式来使一个文档可被搜索，这意味着 `fsync` 要从等式中被移除。
 
-Elasticsearch 和磁盘是文件系统缓存。((("filesystem cache")))  过去文档在内存索引缓存中 (<<img-pre-refresh>>) ，被写到
-一个新的段中(<<img-post-refresh>>)。但是新的段首先被写到文件系统--这是廉价的--只是后来被刷到磁盘--这是昂贵的。但是一旦一个文件在缓存中，
-它就可以被打开和读取，就像其它文件一样。
+在Elasticsearch和磁盘之间是文件系统缓存。((("filesystem cache"))) 像之前描述的一样，
+在内存索引缓冲区 (<<img-pre-refresh>>) 中的文档会被写入到一个新的段中(<<img-post-refresh>>)。但是这里新段会被先写入到文件系统缓存--这一步代价会比较低--稍后再被flush到磁盘--这一步代价比较高。不过只要一个文件已经在缓存中的话，
+就可以像其它文件一样被打开和读取了。
 
 
 
 [[img-pre-refresh]]
-.一个 包含新文档的 Lucene 索引在内存缓存中
+.在内存缓冲区中包含了新文档的Lucene索引
 image::images/elas_1104.png["A Lucene index with new documents in the in-memory buffer"]
 
-Lucene 允许新的段被写入和打开--使文档包含并被搜索--在并没有完全被提交之前。这是比提交轻量很多的进程，而且可以在不影响性能
-的情况下经常完成执行。
+Lucene 允许新段被写入和打开--使其包含的文档在未提交一次完整commit时便对搜索可见。
+这种方式比提交一次commit代价要小得多，并且在不影响性能的前提下可以被频繁地执行。
 
 [[img-post-refresh]]
-.这个缓存内容已经被写入一个可被搜索的段，但是它还没有被提交。
+.缓冲区的内容已经被写入一个可被搜索的段中，但还没有进行提交。
 image::images/elas_1105.png["The buffer contents have been written to a segment, which is searchable, but is not yet commited"]
 
 
 [[refresh-api]]
 ==== refresh API
 
-在 Elasticsearch 中， 写和打开一个新的段的轻量的进程被称作一个 _refresh_。((("shards", "refreshes")))((("refresh API")))
-默认每个分片每秒被刷新一次。这就是为什么我们说 Elasticsearch 有 _近_ 实时搜索: 文档并不是立刻，但是会在一秒内可见可被搜索。
+在 Elasticsearch 中， 写入和打开一个新段的轻量的流程叫做 _refresh_。((("shards", "refreshes")))((("refresh API")))
+默认情况下每个分片会每秒自动刷新一次。这就是为什么我们说 Elasticsearch 有 _准_ 实时搜索: 
+文档的变化并不是立即对搜索可见，但会在一秒之内变为可见。
 
-This can be confusing for new users: they index a document and try to search
-for it, and it just isn't there.  The way around this is to perform a manual
-refresh, with the `refresh` API:
-用户会感到迷惑: 他们索引了一个文档并且试着去搜索，但是却没有搜到。解决问题的办法就是用 `refresh` API 执行一个手工的刷新:
+这些行为可能会对新用户造成困惑: 他们索引了一个文档然后尝试搜索它，但却没有搜到。这个问题的解决办法是用 `refresh` API 执行一次手动刷新:
 
 [source,json]
 -----------------------------
@@ -49,11 +46,12 @@ POST /blogs/_refresh <2>
 
 [TIP]
 ====
-尽管刷新是比提交轻量很多的操作，它还是会有性能开销。((("indices", "refresh_interval"))) 当写测试的时候，一个手工刷新是很有用的，
-但是不要在生产环境下每次索引一个文档都去手工刷新。你的应用应该需要意识到 Elasticsearch 的近实时的性质， 并且容忍它。
+尽管刷新是比提交轻量很多的操作，它还是会有性能开销。((("indices", "refresh_interval"))) 当写测试的时候，
+手动刷新很有用，但是不要在生产环境下每次索引一个文档都去手动刷新。
+你的应用应该需要意识到 Elasticsearch 的准实时的性质， 并且容忍它。
 ====
 
-并不是所有的情况都需要每秒刷新。可能你正在使用 Elasticsearch 索引大量的日志文件， 你可能想优化索引速度而不是近实时搜索，
+并不是所有的情况都需要每秒刷新。可能你正在使用 Elasticsearch 索引大量的日志文件， 你可能想优化索引速度而不是准实时搜索，
 可以以通过设置 ((("refresh_interval setting")))  `refresh_interval`， 降低每个索引的刷新频率：
 
 [source,json]
@@ -67,7 +65,8 @@ PUT /my_logs
 -----------------------------
 <1> 每30秒刷新 `my_logs 索引。
 
-这个 `refresh_interval` 可以在每个存在的索引上被自动更新。当你正在建立一个超大的新的索引时，你可以关闭自动刷新，当在生产环境使用时，再把它们调回来:
+这个 `refresh_interval` 可以在既存索引上进行动态更新。。
+在生产环境中，当你正在建立一个超大的新索引时，可以先关闭自动刷新，待开始使用该索引时，再把它们调回来:
 
 [source,json]
 -----------------------------
@@ -80,5 +79,5 @@ PUT /my_logs/_settings
 <1> 关闭自动刷新
 <2> 每秒自动刷新
 
-注意: `refresh_interval` 需要一个_时间_， 例如 `1s` (1 秒) or `2m` (2 分钟)。
-一个绝对值1 意味着 1 _毫秒_--会引起你的集群瘫痪。
+注意: `refresh_interval` 需要一个 _时间_ 值， 例如 `1s` (1 秒) 或 `2m` (2 分钟)。
+一个绝对值1 表示的是 1 _毫秒_ --无疑会使你的集群陷入瘫痪。
