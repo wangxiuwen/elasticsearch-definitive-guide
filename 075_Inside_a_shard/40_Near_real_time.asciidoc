@@ -31,7 +31,7 @@ image::images/elas_1105.png["The buffer contents have been written to a segment,
 ==== refresh API
 
 在 Elasticsearch 中， 写入和打开一个新段的轻量的流程叫做 _refresh_。((("shards", "refreshes")))((("refresh API")))
-默认情况下每个分片会每秒自动刷新一次。这就是为什么我们说 Elasticsearch 有 _准_ 实时搜索: 
+默认情况下每个分片会每秒自动刷新一次。这就是为什么我们说 Elasticsearch 有 _近_ 实时搜索: 
 文档的变化并不是立即对搜索可见，但会在一秒之内变为可见。
 
 这些行为可能会对新用户造成困惑: 他们索引了一个文档然后尝试搜索它，但却没有搜到。这个问题的解决办法是用 `refresh` API 执行一次手动刷新:
@@ -48,7 +48,7 @@ POST /blogs/_refresh <2>
 ====
 尽管刷新是比提交轻量很多的操作，它还是会有性能开销。((("indices", "refresh_interval"))) 当写测试的时候，
 手动刷新很有用，但是不要在生产环境下每次索引一个文档都去手动刷新。
-你的应用应该需要意识到 Elasticsearch 的准实时的性质， 并且容忍它。
+你的应用应该需要意识到 Elasticsearch 的近实时的性质， 并且容忍它。
 ====
 
 并不是所有的情况都需要每秒刷新。可能你正在使用 Elasticsearch 索引大量的日志文件， 你可能想优化索引速度而不是近实时搜索，
