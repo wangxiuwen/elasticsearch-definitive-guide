@@ -6,7 +6,7 @@
 
 增加新的补充索引来反映更多最近的改变，而不是直接重写整个倒排索引。每一个倒排索引都会被轮流查询到--从最老的开始--查询完后再对结果进行合并。
 
-Elasticsearch 基于Lucene, 这个java 库引入了 _每个段搜索_ 的概念。
+Elasticsearch 基于Lucene, 这个java 库引入了 _按段搜索_ 的概念。
 ((("per-segment search")))((("segments")))((("indices", "in Lucene"))) 一个 _段_ 本身的含义是指一个倒排索引，
 但 _索引_ 在 Lucene 中除表示所有 段_ 的 _集合外， 还增加了 _提交点_ 的概念 &#x2014; 一个文件((("commit point")))
 列出了所有已知的段，就像在 <<img-index-segments>> 中描绘的那样。
