@@ -1,5 +1,5 @@
 [[near-real-time]]
-=== 准实时搜索
+=== 近实时搜索
 
 随着对段内搜索的不断开发，((("searching", "near real-time search"))) 从新文档被索引到其对搜索可见的延迟显著地降低了。
 新文档在几分钟之内即可被检索，但这样还是不够快。
@@ -51,7 +51,7 @@ POST /blogs/_refresh <2>
 你的应用应该需要意识到 Elasticsearch 的准实时的性质， 并且容忍它。
 ====
 
-并不是所有的情况都需要每秒刷新。可能你正在使用 Elasticsearch 索引大量的日志文件， 你可能想优化索引速度而不是准实时搜索，
+并不是所有的情况都需要每秒刷新。可能你正在使用 Elasticsearch 索引大量的日志文件， 你可能想优化索引速度而不是近实时搜索，
 可以以通过设置 ((("refresh_interval setting")))  `refresh_interval`， 降低每个索引的刷新频率：
 
 [source,json]
