@@ -41,7 +41,7 @@ TIP: 查看 <<segments-and-merging>> 来获取关于合并调整用例的建议�
 ==== optimize API
 
 `optimize` API  _强制合并_ API的最好描述  ((("merging segments", "optimize API and")))((("optimize API")))((("segments", "merging", "optimize API")))。它会将一个分片强制合并到 `max_num_segments` 参数指定大小的段数目。
-它的意图是减少段的数量(通常是一个)，来提升搜索性能。
+它的意图是减少段的数量(通常减少到一个)，来提升搜索性能。
 
 WARNING: `optimize` API _不能_ 被用在一个动态索引--一个索引正在被活跃更新。后台合并流程已经可以很好地完成工作。
 optimizing 会阻碍这个进程。勿扰！
