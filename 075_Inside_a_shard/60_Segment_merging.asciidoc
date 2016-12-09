@@ -23,7 +23,7 @@ image::images/elas_1110.png["Two commited segments and one uncommited segment in
 +
 --
     ** 段被刷新到了磁盘。
-    ** 一个新的提交点包含新的段并且不包含旧的段和更小的段被写入。
+    ** 一个包含新的段并且不包含旧的段和更小的段的新的提交点被写入。
     ** 新的段被打开用来搜索。
     ** 老的段被删除。
 
