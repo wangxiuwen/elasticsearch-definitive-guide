@@ -63,7 +63,7 @@ image::images/elas_1109.png["After a flush, the segments are fully commited and 
 这个执行一个提交并且截断 translog 在 Elasticsearch 被称作一次 _flush_。
 ((("flushes"))) 分片每30分钟被自动 flush，或者 translog 太大的时候也会刷新。请查看
 {ref}/index-modules-translog.html#_translog_settings[`translog` documentation] 来设置，它可以用来
-((("translog (transaction log)", "flushes and"))) 控制这些阈值:
+((("translog (transaction log)", "flushes and"))) 控制这些阈值：
 
 {ref}/indices-flush.html[`flush` API] 可以 ((("indices", "flushing")))((("flush API")))被用来执行一个手工的刷新:
 
