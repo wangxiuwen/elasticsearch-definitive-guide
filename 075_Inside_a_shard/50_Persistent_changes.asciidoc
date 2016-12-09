@@ -88,7 +88,7 @@ That said, it is beneficial to <<flush-api,flush>> your indices before restartin
 .Translog 有多安全?
 ****************************************
 
-translog 的目的是保证操作不会丢失。这引出了这个问题: Translog 有多安全((("translog (transaction log)", "safety of"))) ?
+translog 的目的是保证操作不会丢失。这引出了这个问题： Translog 有多安全((("translog (transaction log)", "safety of"))) ？
 
 文件被 +fsync+' 到硬盘前重启的话，文件写入并不会成功。 默认 translog 是每 5 秒被 +fsync+' 刷到硬盘，
 _并且_ 是在写请求完成之后(e.g. index, delete, update, bulk)。 这些进程发生在主分片和复制分片。最终，
