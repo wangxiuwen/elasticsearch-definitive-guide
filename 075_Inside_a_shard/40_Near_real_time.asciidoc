@@ -1,7 +1,6 @@
 [[near-real-time]]
 === 近实时搜索
-
-随着对段内搜索的不断开发，((("searching", "near real-time search"))) 从新文档被索引到其对搜索可见的延迟显著地降低了。
+随着按段搜索的发展，((("searching", "near real-time search"))) 从新文档被索引到其对搜索可见的延迟显著地降低了。
 新文档在几分钟之内即可被检索，但这样还是不够快。
 
 磁盘在这里成为了瓶颈。((("committing segments to disk")))((("fsync")))((("segments", "committing to disk"))) 提交一个新的段到磁盘需要一个
@@ -31,7 +30,7 @@ image::images/elas_1105.png["The buffer contents have been written to a segment,
 ==== refresh API
 
 在 Elasticsearch 中， 写入和打开一个新段的轻量的流程叫做 _refresh_。((("shards", "refreshes")))((("refresh API")))
-默认情况下每个分片会每秒自动刷新一次。这就是为什么我们说 Elasticsearch 有 _近_ 实时搜索: 
+默认情况下每个分片会每秒自动刷新一次。这就是为什么我们说 Elasticsearch 是 _近_ 实时搜索: 
 文档的变化并不是立即对搜索可见，但会在一秒之内变为可见。
 
 这些行为可能会对新用户造成困惑: 他们索引了一个文档然后尝试搜索它，但却没有搜到。这个问题的解决办法是用 `refresh` API 执行一次手动刷新:
